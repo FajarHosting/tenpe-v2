@@ -81,3 +81,21 @@ Aplikasi telah lulus seluruh pengujian integrasi lokal, otorisasi RBAC, reservas
 1. **Kredensial Penyedia QRIS Produksi**: Mengisi `QRIS_MERCHANT_ID`, `QRIS_API_KEY`, dan `QRIS_WEBHOOK_SECRET` resmi dari penyedia payment gateway serta mendaftarkan URL webhook `https://adviora.partnerhub.dpdns.org/api/webhooks/qris`.
 2. **Koneksi Container Pterodactyl WhatsApp Bot v32**: Mengatur `WA_BOT_V32_URL` dan `WA_BOT_V32_SHARED_SECRET` yang dapat dijangkau dari jaringan privat backend, lalu mengubah `WA_BOT_V32_ENABLED="true"`.
 3. **Rotasi Password Bootstrap Admin**: Mengganti nilai `ADMIN_BOOTSTRAP_PASSWORD` di environment produksi dan melakukan rotasi password melalui `/dashboard` setelah login pertama.
+
+
+## 5. Integrasi Tenpe V2 ↔ WhatsApp Bot v32 (Semi-Manual QRIS)
+
+- Isi `QRIS_PAYMENT_LINK` pada environment v32, lalu salin link pembayaran yang sama ke `QRIS_PAYMENT_LINK` atau `QRIS_STATIC_URL` di environment Tenpe V2. Link tersebut hanya tautan checkout QRIS; link ini bukan bukti pembayaran.
+- Pada environment Tenpe V2, aktifkan `WA_BOT_V32_ENABLED=true`, isi `WA_BOT_V32_URL` dengan alamat HTTPS/privat menuju Flask webhook v32, dan set `WA_BOT_V32_SHARED_SECRET` dengan secret acak yang sama persis pada environment v32. Jangan menggunakan secret contoh di produksi.
+- Pada environment v32, isi `WA_BOT_V32_SHARED_SECRET` dan pastikan `WA_ADMIN_JID` mengarah ke nomor WhatsApp pribadi admin/owner dalam format JID yang dipakai bot. Bridge hanya mengirim order/bukti ke target admin dari environment v32; target tidak dipercaya dari browser.
+- Endpoint bridge tambahan: `GET /internal/v32/health` dan `POST /internal/v32/dispatch`. Keduanya memvalidasi HMAC-SHA256. Route baru ini berdiri sendiri dan tidak mengganti endpoint BBPOB, NOKOS, OTP, relay supplier, atau webhook lama.
+- Pembeli checkout, membuka link QRIS, lalu unggah screenshot PNG/JPG/WebP maksimal 5 MB. Server menyimpan bukti dan menaruh notifikasi order/bukti pada WhatsApp outbox. Bot mengirim order baru dan link bukti ke nomor admin.
+- **Semi-auto berarti bukan auto-verifikasi:** unggahan screenshot tidak mengubah status order menjadi PAID. Admin wajib memeriksa mutasi pembayaran lalu memakai aksi admin yang sesuai untuk menyetujui/menandai pembayaran. Jangan aktifkan simulator sandbox di produksi.
+- File bukti disimpan pada `data/payment-proofs/`; pastikan volume direktori `data/` persisten, private dari akses shell publik, dan backup/retensi file ditetapkan. Link bukti hanya untuk admin, tetapi siapa pun yang memiliki URL dapat membukanya; gunakan HTTPS dan hapus bukti sesuai kebijakan retensi.
+
+### Deployment check
+1. Salin nilai link QRIS v32 ke environment Tenpe V2.
+2. Atur shared secret identik di kedua server dan nomor `WA_ADMIN_JID` pada v32.
+3. Pastikan domain toko memakai HTTPS agar bridge menerima link bukti.
+4. Jalankan `npm install`, `npm run lint`, `npm run build`, `npm test`; deploy v32 lalu Tenpe.
+5. Uji order bernilai kecil: order baru → pesan admin → unggah bukti → pesan admin dengan link → verifikasi manual → pemenuhan. Jangan gunakan sandbox settlement pada transaksi sungguhan.

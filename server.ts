@@ -14,8 +14,13 @@ export async function createExpressApp(options?: { skipVite?: boolean }) {
   getDb();
 
   // Strict JSON body limit to prevent DoS payload attacks
-  app.use(express.json({ limit: '256kb' }));
+  app.use(express.json({ limit: '7mb' }));
   app.use(express.urlencoded({ extended: false, limit: '128kb' }));
+
+  // Customer payment evidence is stored outside source files and served as a read-only asset.
+  const proofDir = path.resolve(process.cwd(), 'data', 'payment-proofs');
+  fs.mkdirSync(proofDir, { recursive: true });
+  app.use('/uploads/payment-proofs', express.static(proofDir, { index: false, dotfiles: 'deny', immutable: false, maxAge: '1h' }));
 
   // Mount API routes
   app.use('/api', createApiRouter());
