@@ -1,0 +1,6 @@
+{
+  "name": "AdViora — Premium Digital Commerce Platform",
+  "description": "Platform e-commerce produk digital, lisensi perangkat lunak resmi, dan ekosistem B2B partner dengan pembayaran QRIS terverifikasi serta pengiriman otomatis via WhatsApp.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

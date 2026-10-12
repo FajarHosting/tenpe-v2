@@ -1,0 +1,21 @@
+-- Rollback migration for 001_initial_adviora
+DROP TABLE IF EXISTS system_settings;
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS warranty_claims;
+DROP TABLE IF EXISTS partner_applications;
+DROP TABLE IF EXISTS announcements;
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS whatsapp_outbox;
+DROP TABLE IF EXISTS order_status_history;
+DROP TABLE IF EXISTS fulfillments;
+DROP TABLE IF EXISTS payment_webhook_events;
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS order_items;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS stock_audit_logs;
+DROP TABLE IF EXISTS inventory_items;
+DROP TABLE IF EXISTS products;
+DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS users;
+DELETE FROM schema_migrations WHERE version = '001_initial_adviora';
