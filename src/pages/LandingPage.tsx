@@ -57,11 +57,11 @@ export const LandingPage: React.FC = () => {
     },
     {
       q: 'Bagaimana proses verifikasi pembayaran QRIS bekerja?',
-      a: 'Setiap pesanan menghasilkan tagihan QRIS dengan referensi unik. Pembayaran diverifikasi secara otomatis melalui callback server-to-server ber-signature HMAC-SHA256 tanpa perlu mengirim bukti tangkapan layar.',
+      a: 'Pembeli membuka link QRIS yang dikonfigurasi, lalu mengirim screenshot bukti pembayaran. Bot v32 meneruskan bukti ke WhatsApp admin. Pesanan baru diproses setelah admin memeriksa dan menyetujui pembayaran.',
     },
     {
       q: 'Ke mana kode lisensi atau kredensial produk dikirimkan?',
-      a: 'Begitu status pembayaran terverifikasi sah (PAID), sistem mengklaim stok secara atomik dari brankas dan mengirimkan detail lisensi hanya ke halaman Detail Pesanan pribadi Anda serta nomor WhatsApp terdaftar Anda.',
+      a: 'Setelah admin mengonfirmasi pembayaran, sistem memproses pesanan sesuai stok dan konfigurasi pemenuhan, lalu menampilkan detail pesanan di akun Anda.',
     },
     {
       q: 'Apa perbedaan akun Pelanggan (Customer) dan akun Partner B2B?',
@@ -166,7 +166,7 @@ export const LandingPage: React.FC = () => {
                 <p className="text-base text-slate-600 leading-relaxed max-w-xl">
                   AdViora menyediakan lisensi produktivitas awan, suite kreatif, keamanan
                   jaringan, dan perkakas developer dengan reservasi stok brankas atomik,
-                  verifikasi QRIS otomatis, serta pengiriman langsung ke kanal privat Anda.
+                  pembayaran QRIS dengan pengiriman bukti untuk verifikasi admin, serta pengiriman pesanan setelah pembayaran disetujui.
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">

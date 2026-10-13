@@ -215,6 +215,10 @@ export const OrderDetailPage: React.FC<{ orderId: string }> = ({ orderId }) => {
   const [simulatingWebhook, setSimulatingWebhook] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofNote, setProofNote] = useState('');
+  const [proofSubmitting, setProofSubmitting] = useState(false);
+  const [proofSubmitted, setProofSubmitted] = useState(false);
 
   // Warranty Claim Modal State
   const [warrantyOpen, setWarrantyOpen] = useState(false);
@@ -258,6 +262,38 @@ export const OrderDetailPage: React.FC<{ orderId: string }> = ({ orderId }) => {
     } catch {
       showToast({ type: 'error', title: 'Gagal Menyalin', message: 'Salin secara manual.' });
     }
+  };
+
+  const handleSubmitPaymentProof = async () => {
+    if (!order || !proofFile) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(proofFile.type)) {
+      showToast({ type: 'error', title: 'Format tidak didukung', message: 'Pilih gambar PNG, JPG, atau WebP.' });
+      return;
+    }
+    if (proofFile.size > 5 * 1024 * 1024) {
+      showToast({ type: 'error', title: 'File terlalu besar', message: 'Ukuran bukti maksimal 5 MB.' });
+      return;
+    }
+    setProofSubmitting(true);
+    try {
+      const imageData = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('File tidak terbaca'));
+        reader.onerror = () => reject(new Error('Gagal membaca gambar'));
+        reader.readAsDataURL(proofFile);
+      });
+      const res = await apiFetch(`/api/orders/${encodeURIComponent(order.id)}/payment-proof`, {
+        method: 'POST', body: JSON.stringify({ imageData, note: proofNote }),
+      });
+      if (!res.ok) {
+        showToast({ type: 'error', title: 'Bukti gagal dikirim', message: res.error?.message || 'Coba kembali.' });
+        return;
+      }
+      setProofSubmitted(true);
+      showToast({ type: 'success', title: 'Bukti terkirim', message: 'Bukti masuk ke antrean WhatsApp admin untuk pemeriksaan manual.' });
+    } catch (e) {
+      showToast({ type: 'error', title: 'Upload gagal', message: e instanceof Error ? e.message : 'Periksa koneksi.' });
+    } finally { setProofSubmitting(false); }
   };
 
   const handleSimulateGatewayWebhook = async () => {
@@ -534,7 +570,16 @@ export const OrderDetailPage: React.FC<{ orderId: string }> = ({ orderId }) => {
                     </p>
                   </div>
 
-                  <QrisCodeSvg payload={order.payment.qrisPayload} />
+                  {order.payment.qrisUrl && (
+                    <a href={order.payment.qrisUrl} target="_blank" rel="noreferrer" className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:bg-emerald-700">
+                      <QrCode className="h-4 w-4" /> Buka Link Pembayaran QRIS <ArrowRight className="h-4 w-4" />
+                    </a>
+                  )}
+                  {!order.payment.qrisUrl && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+                      Link QRIS belum dikonfigurasi. Hubungi admin toko; jangan melakukan pembayaran sebelum link resmi tersedia.
+                    </div>
+                  )}
 
                   <div className="p-3.5 rounded-lg bg-[#F8FAFC] border border-slate-200 space-y-2 text-xs">
                     <div className="flex items-center justify-between">
@@ -595,6 +640,23 @@ export const OrderDetailPage: React.FC<{ orderId: string }> = ({ orderId }) => {
                     <strong>Kebijakan Verifikasi Aman:</strong> Status pesanan tidak dapat diubah
                     secara manual dari browser. Sistem hanya memvalidasi pembayaran melalui
                     callback server-to-server ber-signature kriptografis dari penyedia QRIS.
+                  </div>
+
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 space-y-3">
+                    <div>
+                      <p className="text-sm font-extrabold text-slate-900">Sudah membayar?</p>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-600">Kirim screenshot bukti transfer/QRIS. Bot v32 akan meneruskan detail pesanan dan tautan bukti ke nomor admin yang dikonfigurasi di environment. Status tetap menunggu sampai admin memeriksa pembayaran.</p>
+                    </div>
+                    {proofSubmitted ? (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">Bukti sudah dikirim untuk pemeriksaan admin. Jangan membayar ulang kecuali diminta admin.</div>
+                    ) : (
+                      <>
+                        <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setProofFile(e.target.files?.[0] || null)} className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-2 file:text-xs file:font-bold file:text-slate-700" aria-label="Pilih screenshot bukti pembayaran" />
+                        <textarea value={proofNote} onChange={(e) => setProofNote(e.target.value)} maxLength={500} rows={2} placeholder="Catatan opsional, misalnya nama pengirim..." className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-500" />
+                        <Button variant="primary" size="md" className="w-full" loading={proofSubmitting} disabled={!proofFile} onClick={() => void handleSubmitPaymentProof()}>Kirim Bukti ke Admin via WhatsApp</Button>
+                        <p className="text-[10px] leading-relaxed text-slate-500">PNG/JPG/WebP · maksimal 5 MB · bukti hanya untuk verifikasi manual.</p>
+                      </>
+                    )}
                   </div>
 
                   {/* Sandbox Webhook Trigger for Local / QA Verification */}
