@@ -40,3 +40,12 @@
     scroll-behavior: auto !important;
   }
 }
+
+
+/* Premium storefront refinements: softer canvas, stronger focus states, app-like surfaces. */
+:root { color-scheme: light; }
+body { background: #f5f7fb; }
+::selection { background: rgba(16,185,129,.18); color: #064e3b; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(16,185,129,.35); outline-offset: 2px; }
+@media (min-width: 1024px) { main { scroll-margin-top: 5rem; } }
