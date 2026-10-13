@@ -9,6 +9,7 @@ export interface OutboxEnqueueParams {
   targetType: 'CUSTOMER_PRIVATE' | 'ADMIN_GROUP';
   recipient: string;
   eventType:
+    | 'PAYMENT_PROOF_SUBMITTED'
     | 'ORDER_CREATED'
     | 'PAYMENT_VERIFIED'
     | 'FULFILLMENT_COMPLETED'

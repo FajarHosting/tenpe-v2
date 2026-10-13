@@ -46,6 +46,7 @@ export interface RuntimeConfig {
     url: string;
     sharedSecret: string;
     adminGroupJid: string;
+    adminJid: string;
     timeoutMs: number;
   };
 }
@@ -88,7 +89,7 @@ export function getRuntimeConfig(): RuntimeConfig {
       mode: qrisMode,
       merchantId: process.env.QRIS_MERCHANT_ID || 'ID2026ADVIORAMERCHANT',
       merchantName: process.env.QRIS_MERCHANT_NAME || 'ADVIORA DIGITAL COMMERCE',
-      staticUrl: process.env.QRIS_STATIC_URL || '',
+      staticUrl: process.env.QRIS_STATIC_URL || process.env.QRIS_PAYMENT_LINK || '',
       dynamicApiUrl: process.env.QRIS_DYNAMIC_API_URL || '',
       apiKey: process.env.QRIS_API_KEY || '',
       webhookSecret:
@@ -109,7 +110,8 @@ export function getRuntimeConfig(): RuntimeConfig {
       url: process.env.WA_BOT_V32_URL || 'http://127.0.0.1:4032',
       sharedSecret:
         process.env.WA_BOT_V32_SHARED_SECRET || 'adviora_wabot_v32_shared_secret_2026',
-      adminGroupJid: process.env.WA_BOT_V32_ADMIN_GROUP_JID || '120363029384756@g.us',
+      adminGroupJid: process.env.WA_BOT_V32_ADMIN_GROUP_JID || '',
+      adminJid: process.env.WA_BOT_V32_ADMIN_JID || process.env.WA_ADMIN_JID || '',
       timeoutMs: Math.max(2000, Number(process.env.WA_BOT_V32_TIMEOUT_MS || 8000)),
     },
   };

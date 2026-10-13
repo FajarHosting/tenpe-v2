@@ -9,6 +9,7 @@ export interface CreateOrderInput {
   userRole: 'CUSTOMER' | 'PARTNER' | 'ADMIN';
   userWhatsapp: string;
   userEmail: string;
+  customerUsername?: string;
   productId: string;
   quantity: number;
   idempotencyKey: string;
@@ -348,7 +349,7 @@ export function createOrder(input: CreateOrderInput) {
       `osh_${crypto.randomUUID()}`,
       orderId,
       input.userId,
-      `Order dibuat (${quantity}x ${product.name}). Menunggu verifikasi pembayaran QRIS Rp ${totalAmount.toLocaleString('id-ID')}.`,
+      `Order dibuat (${quantity}x ${product.name}). Menunggu pemeriksaan pembayaran QRIS Rp ${totalAmount.toLocaleString('id-ID')}.`,
       nowIso
     );
 
@@ -366,12 +367,12 @@ export function createOrder(input: CreateOrderInput) {
       nowIso
     );
 
-    if (config.waBotV32.adminGroupJid) {
+    if (config.waBotV32.adminJid) {
       enqueueWhatsAppOutbox({
         idempotencyKey: `wa_admin_order_created_${orderNumber}`,
         orderId,
-        targetType: 'ADMIN_GROUP',
-        recipient: config.waBotV32.adminGroupJid,
+        targetType: 'CUSTOMER_PRIVATE',
+        recipient: config.waBotV32.adminJid,
         eventType: 'ORDER_CREATED',
         payload: {
           orderNumber,
@@ -380,6 +381,10 @@ export function createOrder(input: CreateOrderInput) {
           totalAmount,
           currency: 'IDR',
           status: 'PENDING_PAYMENT',
+          customerUsername: String(input.customerUsername || ''),
+          customerWhatsapp: input.userWhatsapp,
+          customerEmail: input.userEmail,
+          buyerNotes: input.notes || '',
         },
       });
     }

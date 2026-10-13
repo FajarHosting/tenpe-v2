@@ -1,5 +1,7 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import { getDb, syncProductStockCount, withTransaction } from './db.ts';
 import { getRuntimeConfig } from './runtimeEnv.ts';
 import {
@@ -976,6 +978,7 @@ export function createApiRouter(): express.Router {
         userEmail: req.user!.email,
         productId: String(productId || ''),
         quantity: Number(quantity || 1),
+        customerUsername: req.user!.username,
         idempotencyKey: String(idempotencyKey || ''),
         notes: notes ? String(notes) : undefined,
         channel:
@@ -1050,6 +1053,55 @@ export function createApiRouter(): express.Router {
         createdAt: String(o.created_at),
       })),
     });
+  });
+
+  // Semi-manual QRIS: store the buyer's screenshot and notify the owner via v32.
+  // Important: submitting evidence DOES NOT mark an order as paid; admin must verify it.
+  router.post('/orders/:id/payment-proof', requireAuth, requireCsrf, checkoutRateLimiter, (req, res) => {
+    const orderId = String(req.params.id || '');
+    const db = getDb();
+    const order = db.prepare(`SELECT id, order_number, user_id, status, total_amount FROM orders WHERE id = ?`).get(orderId) as
+      | { id: string; order_number: string; user_id: string; status: string; total_amount: number }
+      | undefined;
+    if (!order || (order.user_id !== req.user!.id && req.user!.role !== 'ADMIN')) {
+      return res.status(404).json({ ok: false, error: { code: 'ORDER_NOT_FOUND', message: 'Pesanan tidak ditemukan.' } });
+    }
+    if (order.status !== 'PENDING_PAYMENT') {
+      return res.status(409).json({ ok: false, error: { code: 'ORDER_NOT_PAYABLE', message: 'Pesanan ini tidak lagi menunggu pembayaran.' } });
+    }
+    const imageData = String(req.body?.imageData || '');
+    const note = String(req.body?.note || '').trim().slice(0, 500);
+    const match = imageData.match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);
+    if (!match) return res.status(400).json({ ok: false, error: { code: 'INVALID_PROOF_IMAGE', message: 'Unggah bukti berupa PNG, JPG, atau WebP.' } });
+    const buffer = Buffer.from(match[2], 'base64');
+    if (!buffer.length || buffer.length > 5 * 1024 * 1024) return res.status(413).json({ ok: false, error: { code: 'PROOF_TOO_LARGE', message: 'Ukuran bukti maksimal 5 MB.' } });
+    const config = getRuntimeConfig();
+    if (!config.waBotV32.adminJid) return res.status(503).json({ ok: false, error: { code: 'ADMIN_WHATSAPP_NOT_CONFIGURED', message: 'Nomor WhatsApp admin belum dikonfigurasi di environment server.' } });
+    const mime = match[1];
+    const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
+    const filename = `${crypto.randomUUID()}.${ext}`;
+    const proofDir = path.resolve(process.cwd(), 'data', 'payment-proofs');
+    fs.mkdirSync(proofDir, { recursive: true });
+    fs.writeFileSync(path.join(proofDir, filename), buffer, { flag: 'wx', mode: 0o640 });
+    const now = new Date().toISOString();
+    const proofId = `proof_${crypto.randomUUID()}`;
+    try {
+      db.prepare(`INSERT INTO payment_proofs (id, order_id, user_id, file_path, mime_type, note, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'SUBMITTED', ?)`).run(proofId, order.id, req.user!.id, `/uploads/payment-proofs/${filename}`, mime, note || null, now);
+    } catch (e) {
+      try { fs.unlinkSync(path.join(proofDir, filename)); } catch {}
+      return res.status(409).json({ ok: false, error: { code: 'PROOF_ALREADY_SUBMITTED', message: 'Bukti pembayaran untuk pesanan ini sudah pernah dikirim.' } });
+    }
+    const publicUrl = `${config.storeUrl.replace(/\/$/, '')}/uploads/payment-proofs/${filename}`;
+    enqueueWhatsAppOutbox({
+      idempotencyKey: `payment-proof:${order.id}`,
+      orderId: order.id,
+      targetType: 'CUSTOMER_PRIVATE',
+      recipient: config.waBotV32.adminJid,
+      eventType: 'PAYMENT_PROOF_SUBMITTED',
+      payload: { orderNumber: order.order_number, amount: Number(order.total_amount), customerUsername: req.user!.username, customerWhatsapp: req.user!.whatsapp, proofUrl: publicUrl, note },
+    });
+    void processWhatsAppOutboxBatch(5);
+    return res.status(201).json({ ok: true, data: { proofId, status: 'SUBMITTED', message: 'Bukti tersimpan dan dikirim ke antrean WhatsApp admin. Pesanan tetap menunggu verifikasi admin.' } });
   });
 
   router.get('/orders/:id', requireAuth, (req, res) => {
