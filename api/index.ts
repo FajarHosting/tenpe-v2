@@ -1,7 +1,15 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { getDb } from '../server/db.js';
+import * as apiRouterModule from '../server/apiRouter.js';
 
 let cachedApp: express.Express | null = null;
+
+// Support named export `apiRouter`, default export, atau router instance
+const apiRouter: any =
+  (apiRouterModule as any).apiRouter ||
+  (apiRouterModule as any).default ||
+  (apiRouterModule as any).router ||
+  apiRouterModule;
 
 /**
  * Membuat Express app untuk Vercel Serverless Function (/api/*)
@@ -51,33 +59,22 @@ export function createApiApp(): express.Express {
     console.error('[Tenpe API] Warning: DB initial check failed, will retry on request:', dbErr);
   }
 
-  // Load router utama aplikasi
-  try {
-    const { apiRouter } = require('../server/apiRouter.js');
-    if (apiRouter) {
-      app.use('/api', apiRouter);
-      app.use('/', apiRouter);
-    }
-  } catch (routerErr) {
-    console.warn('[Tenpe API] Memuat apiRouter dengan fallback module loader:', routerErr);
-    try {
-      const routerModule = require('../server/apiRouter');
-      const router = routerModule.apiRouter || routerModule.default;
-      if (router) {
-        app.use('/api', router);
-        app.use('/', router);
-      }
-    } catch (fallbackRouterErr) {
-      console.error('[Tenpe API] Gagal memuat apiRouter:', fallbackRouterErr);
-    }
+  // Pasang router utama aplikasi
+  if (typeof apiRouter === 'function' || (apiRouter && typeof apiRouter.use === 'function')) {
+    // Pasang pada /api dan / agar cocok untuk URL ber-prefix /api maupun yang di-rewrite Vercel
+    app.use('/api', apiRouter);
+    app.use('/', apiRouter);
+  } else {
+    console.error('[Tenpe API] Error: apiRouter tidak valid atau bukan Express router:', typeof apiRouter);
   }
 
   // Catch-all 404 handler dalam format JSON (agar frontend tidak menerima HTML mentah)
   app.use((req: Request, res: Response) => {
+    console.warn(`[Tenpe API] 404 Not Found: ${req.method} ${req.originalUrl || req.url}`);
     res.status(404).json({
       success: false,
       error: 'Not Found',
-      message: `Endpoint ${req.method} ${req.url} tidak ditemukan di server API.`,
+      message: `Endpoint ${req.method} ${req.originalUrl || req.url} tidak ditemukan di server API.`,
     });
   });
 
