@@ -319,3 +319,19 @@ CREATE TABLE IF NOT EXISTS system_settings (
   updated_by TEXT,
   updated_at TEXT NOT NULL
 );
+
+
+-- Semi-manual QRIS evidence. Evidence submission never marks an order as paid.
+CREATE TABLE IF NOT EXISTS payment_proofs (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL UNIQUE,
+  user_id TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  note TEXT,
+  status TEXT NOT NULL DEFAULT 'SUBMITTED' CHECK (status IN ('SUBMITTED','APPROVED','REJECTED')),
+  created_at TEXT NOT NULL,
+  reviewed_at TEXT,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
