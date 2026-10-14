@@ -1,0 +1,25 @@
+TENPE V2 - FILES TO APPLY
+
+REPLACE these paths in the existing project:
+  index.js
+  main.js
+  endpoint/shop.js
+  endpoint/adminShop.js
+  package.json
+  .gitignore
+  neon-schema.sql
+
+ADD these paths:
+  lib/postgres-document-store.js
+  .env.example
+  README-NEON-MIGRATION.md
+
+DELETE this obsolete file from the repository after confirming no other branch/file imports it:
+  lib/pg-mongoose-compat.js
+
+IMPORTANT:
+- Do NOT copy or upload the real .env from the original archive into GitHub.
+- Keep DATABASE_URL, SESSION_SECRET, mail credentials, and bot/API keys secret.
+- Run npm install after replacing package.json.
+- Apply neon-schema.sql to Neon and test on a staging deployment first.
+- This patch changes runtime persistence to PostgreSQL JSONB. It does not import existing MongoDB data into Neon automatically.
